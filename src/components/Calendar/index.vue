@@ -6,7 +6,6 @@
         <label for="only_work_hours">Только рабочие часы (c {{ work_hours.start }} до {{ work_hours.end }})</label>
       </div>
       <div>
-        {{ eventsOnSelectedWeek.length }}
         <button type="button" @click="setToday">Сегодня</button>&nbsp;&nbsp;
         <button type="button" @click="decrementWeek">&#8592;</button>
         &nbsp;{{ currentMonth }}&nbsp;
@@ -28,6 +27,9 @@
         </div>
       </div>
     </div>
+    <div class="footer_section">
+      <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div>
+    </div>
   </div>
 </template>
 
@@ -38,18 +40,10 @@ import DateUtils from '@/common/DateUtils.js';
 export default {
   name: 'Calendar',
   data() {
-    this.days_of_week_default = [
-      { number: 1, title: 'ПН' },
-      { number: 2, title: 'ВТ' },
-      { number: 3, title: 'СР' },
-      { number: 4, title: 'ЧТ' },
-      { number: 5, title: 'ПТ' },
-      { number: 6, title: 'СБ' },
-      { number: 7, title: 'ВС' },
-    ];
-    this.default_hours = Array.from({ length: 24 }, (x, i) => i);
+    this.days_of_week_default = DateUtils.getDaysOfWeekDefaultsWeek;
+    this.default_hours = DateUtils.createDefaultHoursList;
     this.work_hours = { start: 8, end: 19 };
-    this.weekTSPeriod = 1000 * 60 * 60 * 24 * 7;
+    this.weekTSPeriod = DateUtils.weekTSPeriod;
 
     return {
       only_work_hours: false,
@@ -69,7 +63,7 @@ export default {
       this.monday = new Date(this.monday / 1 - this.weekTSPeriod);
     },
     addDayCalculate(num) {
-      return new Date(this.monday / 1 + (this.weekTSPeriod * num) / 7).getDate();
+      return new Date(this.monday / 1 + DateUtils.dayTSPeriod * num).getDate();
     },
   },
   computed: {
@@ -82,7 +76,8 @@ export default {
         : this.default_hours;
     },
     currentMonth() {
-      return this.monday.getMonth();
+      // TODO: баг - результат на 1 меньше, когда 1 число месяца это понедельник
+      return this.monday.getMonth() + 1;
     },
     nextModnayTS() {
       return new Date(this.monday / 1 + this.weekTSPeriod) / 1000;
@@ -174,5 +169,10 @@ export default {
   left: -40px;
   top: -9px;
   font-size: 14px;
+}
+.footer_section {
+  position: relative;
+  width: 100%;
+  padding: 5px 5px 5px 5px;
 }
 </style>
