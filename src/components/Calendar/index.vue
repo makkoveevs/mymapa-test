@@ -8,7 +8,7 @@
       <div>
         <button type="button" @click="setToday">Сегодня</button>&nbsp;&nbsp;
         <button type="button" @click="decrementWeek">&#8592;</button>
-        &nbsp;{{ currentMonth }}&nbsp;
+        &nbsp;{{ monthsNames[currentMonth] }}&nbsp;
         <button type="button" @click="incrementWeek">&#8594;</button>
       </div>
     </div>
@@ -27,16 +27,18 @@
         </div>
         <div class="events_container" :style="`height:${eventsContainerHeight}px;`">
           <event-component
-            v-for="(evts, i) in eventsByDays[day_item.number]"
+            class="event_item"
+            v-for="(evt, i) in eventsByDays[day_item.number]"
             :key="i"
-            :only_work_hours="true"
-            :eventdata="evts"
+            :eventdata="evt"
+            :style="`top:${getEventTopPosition(evt.startDate, day_item.number)}px;`"
           />
         </div>
       </div>
     </div>
     <div class="footer_section">
       <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div>
+      <div>{{ monday.toLocaleString() }}</div>
       <div>{{ monday / 1 }}</div>
       <div>{{ eventsByDays }}</div>
     </div>
@@ -52,10 +54,9 @@ export default {
   name: 'Calendar',
   components: { EventComponent },
   data() {
-    this.days_of_week_default = DateUtils.getDaysOfWeekDefaultsWeek;
-    this.default_hours = DateUtils.createDefaultHoursList;
     this.work_hours = { start: 8, end: 19 };
-    this.weekTSPeriod = DateUtils.weekTSPeriod;
+    this.monthsNames = DateUtils.monthsNames;
+    this.hour_item_height = 51;
 
     return {
       only_work_hours: false,
@@ -70,58 +71,77 @@ export default {
       this.monday = DateUtils.getMondayTS();
     },
     incrementWeek() {
-      this.monday = new Date(this.monday / 1 + this.weekTSPeriod);
+      this.monday = new Date(this.monday / 1 + DateUtils.weekTSPeriod);
     },
     decrementWeek() {
-      this.monday = new Date(this.monday / 1 - this.weekTSPeriod);
+      this.monday = new Date(this.monday / 1 - DateUtils.weekTSPeriod);
     },
     addDayCalculate(num) {
-      return new Date(this.monday / 1 + DateUtils.dayTSPeriod * num).getDate();
+      return new Date(this.monday / 1 + (DateUtils.dayTSPeriod * num - 1)).getDate();
     },
     initEventsByDay() {
       this.eventsByDays = {};
-      this.days_of_week_default.forEach((d) => this.$set(this.eventsByDays, d.number, []));
+      DateUtils.getDaysOfWeekDefaultsWeek.forEach((d) => this.$set(this.eventsByDays, d.number, []));
     },
     createStructure() {
       this.initEventsByDay();
 
       this.eventsOnSelectedWeek.forEach((e) => {
         const calcValue = (e.startDate * 1000 - this.monday) / DateUtils.dayTSPeriod;
-        console.log(e.title, calcValue);
         const dayNum = Math.ceil(calcValue);
         this.eventsByDays[dayNum].push(e);
       });
     },
+    getEventTopPosition(startDate, dayNum) {
+      const startOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
+      const endOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
+      const ts0 = startDate;
+      const ts1 = startOfDayCoef + (DateUtils.dayTSPeriod * (dayNum - 1) + this.monday / 1) / 1000;
+      const ts2 = (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - endOfDayCoef;
+      const px1 = 0;
+      const px2 = this.eventsContainerHeight;
+      const px0 = (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
+      return px0;
+    },
+    // convertEventTopPositionToTS(startDate, dayNum) {
+    //   const startOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
+    //   const endOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
+    //   const ts0 = startDate;
+    //   const ts1 = startOfDayCoef + (DateUtils.dayTSPeriod * (dayNum - 1) + this.monday / 1) / 1000;
+    //   const ts2 = (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - endOfDayCoef;
+    //   const px1 = 0;
+    //   const px2 = this.eventsContainerHeight;
+    //   const px0 = (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
+    //   return px0;
+    // },
   },
   watch: {
-    monday(v) {
-      console.log('change_monday', v);
+    monday() {
       this.createStructure();
     },
   },
   computed: {
     days_of_week() {
-      return this.days_of_week_default;
+      return DateUtils.getDaysOfWeekDefaultsWeek;
     },
     displayed_hours() {
       return this.only_work_hours
-        ? this.default_hours.filter((e) => e >= this.work_hours.start && e <= this.work_hours.end)
-        : this.default_hours;
+        ? DateUtils.createDefaultHoursList.filter((e) => e >= this.work_hours.start && e <= this.work_hours.end)
+        : DateUtils.createDefaultHoursList;
     },
     currentMonth() {
       // TODO: баг - результат на 1 меньше, когда 1 число месяца это понедельник
-      return this.monday.getMonth() + 1;
+      return this.monday.getMonth();
     },
     nextModnayTS() {
-      return new Date(this.monday / 1 + this.weekTSPeriod) / 1000;
+      return new Date(this.monday / 1 + DateUtils.weekTSPeriod) / 1000;
     },
     eventsOnSelectedWeek() {
       return this.data.filter((e) => e.startDate > this.monday / 1000 && e.endDate < this.nextModnayTS);
     },
     eventsContainerHeight() {
-      const hour_item_height = 51;
-      if (this.only_work_hours) return hour_item_height * (this.work_hours.end - this.work_hours.start + 1);
-      return hour_item_height * 24;
+      if (this.only_work_hours) return this.hour_item_height * (this.work_hours.end - this.work_hours.start + 1);
+      return this.hour_item_height * 24;
     },
   },
   created() {
@@ -189,15 +209,6 @@ export default {
   display: none;
 }
 
-.events_container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: calc(100% - 4px);
-  border: 1px solid red;
-  padding-left: 4px;
-}
-
 .hour_item {
   position: relative;
   width: 100%;
@@ -217,6 +228,19 @@ export default {
   top: -9px;
   font-size: 14px;
 }
+
+.events_container {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  box-sizing: content-box;
+}
+.event_item {
+  position: absolute;
+  left: 2px;
+}
+
 .footer_section {
   position: relative;
   width: 100%;
