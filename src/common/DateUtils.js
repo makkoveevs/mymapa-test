@@ -10,6 +10,7 @@ const createDefaultHoursList = Array.from({ length: 24 }, (x, i) => i);
 
 const weekTSPeriod = 1000 * 60 * 60 * 24 * 7;
 const dayTSPeriod = 1000 * 60 * 60 * 24;
+const hourTSPeriod = 1000 * 60 * 60;
 
 const getDaysOfWeekDefaultsWeek = [
   { number: 1, title: 'ПН' },
@@ -20,4 +21,11 @@ const getDaysOfWeekDefaultsWeek = [
   { number: 6, title: 'СБ' },
   { number: 7, title: 'ВС' },
 ];
-export default { getMondayTS, createDefaultHoursList, weekTSPeriod, getDaysOfWeekDefaultsWeek, dayTSPeriod };
+export default {
+  getMondayTS,
+  createDefaultHoursList,
+  weekTSPeriod,
+  getDaysOfWeekDefaultsWeek,
+  dayTSPeriod,
+  hourTSPeriod,
+};

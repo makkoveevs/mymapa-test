@@ -26,12 +26,19 @@
           </div>
         </div>
         <div class="events_container" :style="`height:${eventsContainerHeight}px;`">
-          <event-component :only_work_hours="true" :eventdata="'eventdata'" />
+          <event-component
+            v-for="(evts, i) in eventsByDays[day_item.number]"
+            :key="i"
+            :only_work_hours="true"
+            :eventdata="evts"
+          />
         </div>
       </div>
     </div>
     <div class="footer_section">
       <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div>
+      <div>{{ monday / 1 }}</div>
+      <div>{{ eventsByDays }}</div>
     </div>
   </div>
 </template>
@@ -55,6 +62,7 @@ export default {
       data: [],
       weekCounter: 0,
       monday: DateUtils.getMondayTS(),
+      eventsByDays: {},
     };
   },
   methods: {
@@ -69,6 +77,26 @@ export default {
     },
     addDayCalculate(num) {
       return new Date(this.monday / 1 + DateUtils.dayTSPeriod * num).getDate();
+    },
+    initEventsByDay() {
+      this.eventsByDays = {};
+      this.days_of_week_default.forEach((d) => this.$set(this.eventsByDays, d.number, []));
+    },
+    createStructure() {
+      this.initEventsByDay();
+
+      this.eventsOnSelectedWeek.forEach((e) => {
+        const calcValue = (e.startDate * 1000 - this.monday) / DateUtils.dayTSPeriod;
+        console.log(e.title, calcValue);
+        const dayNum = Math.ceil(calcValue);
+        this.eventsByDays[dayNum].push(e);
+      });
+    },
+  },
+  watch: {
+    monday(v) {
+      console.log('change_monday', v);
+      this.createStructure();
     },
   },
   computed: {
@@ -98,6 +126,9 @@ export default {
   },
   created() {
     this.data = calendar_events;
+  },
+  mounted() {
+    this.createStructure();
   },
 };
 </script>
