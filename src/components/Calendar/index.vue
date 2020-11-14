@@ -20,7 +20,12 @@
     </div>
     <div class="hours_container">
       <div class="day_of_week" v-for="day_item in days_of_week" :key="day_item.number">
-        <div class="hour_item" v-for="(hour_item, i) in displayed_hours" :key="i">
+        <div
+          class="hour_item"
+          v-for="(hour_item, i) in displayed_hours"
+          :key="i"
+          :style="`height: ${hour_item_height - 1}px;`"
+        >
           <div class="time_value" v-if="day_item.number == 1">
             <span v-if="hour_item < 10">0</span>{{ hour_item }}:00
           </div>
@@ -65,10 +70,10 @@ export default {
   data() {
     this.work_hours = { start: 8, end: 19 };
     this.monthsNames = DateUtils.monthsNames;
-    this.hour_item_height = 51;
+    this.hour_item_height = DateUtils.hourItemHeight;
 
     return {
-      only_work_hours: true,
+      only_work_hours: false,
       data: [],
       weekCounter: 0,
       monday: DateUtils.getMondayTS(),
@@ -94,7 +99,7 @@ export default {
       const addNotWorkHours = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
       const newStartTime =
         this.monday / 1000 + ((dropDay - 1) * DateUtils.dayTSPeriod) / 1000 + deltaTS + addNotWorkHours;
-      // TODO: некорректно вычисляется newStartTime (странное небольшое смещение) при only_work_hours == true
+      // TODO: некорректно вычисляется newStartTime (странное небольшое смещение). чаще при only_work_hours == true
       const evtStr = event.dataTransfer.getData('evt');
       const idx = this.data.findIndex((e) => JSON.stringify(e) === evtStr);
       if (idx == -1) return;
@@ -237,7 +242,7 @@ export default {
 .hour_item {
   position: relative;
   width: 100%;
-  height: 50px;
+  /* height: 50px; */
   font-size: 25px;
   border-right: 1px solid grey;
   border-top: 1px solid grey;

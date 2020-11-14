@@ -1,11 +1,8 @@
 const getMondayTS = () => {
   const today = new Date();
   const dayDate = today.getDate();
-  const dayNum = today.getDay();
-  // console.log('dayNum', dayNum);
-  // console.log('dayDate', dayDate);
+  const dayNum = today.getDay() == 0 ? 7 : today.getDay();
   const month = today.getMonth();
-  // console.log('monthDate', month);
   const year = today.getFullYear();
   return new Date(year, month, dayDate - dayNum + 1);
 };
@@ -27,6 +24,8 @@ const getDaysOfWeekDefaultsWeek = [
   { number: 6, title: 'СБ' },
   { number: 7, title: 'ВС' },
 ];
+const hourItemHeight = 51;
+
 export default {
   getMondayTS,
   createDefaultHoursList,
@@ -35,4 +34,5 @@ export default {
   dayTSPeriod,
   hourTSPeriod,
   monthsNames,
+  hourItemHeight,
 };
