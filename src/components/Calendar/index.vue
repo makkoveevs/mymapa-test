@@ -41,16 +41,15 @@
             :evtdata="evt"
             :style="`top:${getEventTopPosition(evt.startDate, day_item.number)}px;`"
             draggable="true"
+            @dragend.prevent=""
+            @dragenter.prevent=""
+            @dragover.prevent=""
           ></event-component>
-          <!-- @dragstart.prevent="$event.dataTransfer.setData('text/plain', 'test')" -->
         </div>
       </div>
     </div>
     <div class="footer_section">
       <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div>
-      <div>{{ monday.toLocaleString() }}</div>
-      <div>{{ monday / 1 }}</div>
-      <div>{{ eventsByDays }}</div>
     </div>
   </div>
 </template>
@@ -82,23 +81,27 @@ export default {
       this.prepareDropDay = 0;
     },
     dropHandler(event) {
-      // const evtStr = event.dataTransfer.getData('evt');
       const offsetYstart = event.dataTransfer.getData('offsety');
-      console.log('offsetYstart', offsetYstart);
-
-      // console.log('drop', event.dataTransfer.getData('evt'));
       const dropDay = this.prepareDropDay;
       this.prepareDropDay = 0;
       const offsetY = event.offsetY - offsetYstart;
       if (offsetY < 0) return;
-      console.log('offsetY', offsetY);
       let hours = 24;
       if (this.only_work_hours) hours = this.work_hours.end - this.work_hours.start + 1;
 
       const tsPeriod = 60 * 60 * hours;
       const deltaTS = Math.sign(offsetY) * ((Math.abs(offsetY) * tsPeriod) / this.eventsContainerHeight);
-
-      console.log(dropDay, deltaTS);
+      const addNotWorkHours = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
+      const newStartTime =
+        this.monday / 1000 + ((dropDay - 1) * DateUtils.dayTSPeriod) / 1000 + deltaTS + addNotWorkHours;
+      // TODO: некорректно вычисляется newStartTime (странное небольшое смещение) при only_work_hours == true
+      const evtStr = event.dataTransfer.getData('evt');
+      const idx = this.data.findIndex((e) => JSON.stringify(e) === evtStr);
+      if (idx == -1) return;
+      const eventLength = this.data[idx].endDate - this.data[idx].startDate;
+      this.$set(this.data[idx], 'startDate', Math.round(newStartTime));
+      this.$set(this.data[idx], 'endDate', Math.round(newStartTime + eventLength));
+      this.createStructure();
     },
 
     setToday() {
