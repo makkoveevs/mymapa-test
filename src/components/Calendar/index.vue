@@ -25,6 +25,9 @@
             <span v-if="hour_item < 10">0</span>{{ hour_item }}:00
           </div>
         </div>
+        <div class="events_container" :style="`height:${eventsContainerHeight}px;`">
+          <event-component :only_work_hours="true" :eventdata="'eventdata'" />
+        </div>
       </div>
     </div>
     <div class="footer_section">
@@ -36,9 +39,11 @@
 <script>
 import calendar_events from '@/mock/calendar_events';
 import DateUtils from '@/common/DateUtils.js';
+import EventComponent from './EventComponent.vue';
 
 export default {
   name: 'Calendar',
+  components: { EventComponent },
   data() {
     this.days_of_week_default = DateUtils.getDaysOfWeekDefaultsWeek;
     this.default_hours = DateUtils.createDefaultHoursList;
@@ -85,6 +90,11 @@ export default {
     eventsOnSelectedWeek() {
       return this.data.filter((e) => e.startDate > this.monday / 1000 && e.endDate < this.nextModnayTS);
     },
+    eventsContainerHeight() {
+      const hour_item_height = 51;
+      if (this.only_work_hours) return hour_item_height * (this.work_hours.end - this.work_hours.start + 1);
+      return hour_item_height * 24;
+    },
   },
   created() {
     this.data = calendar_events;
@@ -116,11 +126,8 @@ export default {
 .day_of_week {
   position: relative;
   flex-grow: 1;
-}
-
-.day_of_week:nth-child(1) {
-  position: relative;
-  flex-grow: 1;
+  width: 100%;
+  height: 100%;
 }
 
 .day_title {
@@ -149,6 +156,15 @@ export default {
 }
 .hours_container::-webkit-scrollbar {
   display: none;
+}
+
+.events_container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% - 4px);
+  border: 1px solid red;
+  padding-left: 4px;
 }
 
 .hour_item {
