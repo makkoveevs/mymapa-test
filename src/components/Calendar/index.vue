@@ -25,14 +25,24 @@
             <span v-if="hour_item < 10">0</span>{{ hour_item }}:00
           </div>
         </div>
-        <div class="events_container" :style="`height:${eventsContainerHeight}px;`">
+        <div
+          class="events_container"
+          :style="`height:${eventsContainerHeight}px;`"
+          @drop="dropHandler($event)"
+          @dragend.prevent="dragEndHandler"
+          @dragenter.prevent="prepareDropDay = day_item.number"
+          @dragover.prevent=""
+          :class="{ prepare_drop: prepareDropDay == day_item.number }"
+        >
           <event-component
             class="event_item"
             v-for="(evt, i) in eventsByDays[day_item.number]"
             :key="i"
-            :eventdata="evt"
+            :evtdata="evt"
             :style="`top:${getEventTopPosition(evt.startDate, day_item.number)}px;`"
-          />
+            draggable="true"
+          ></event-component>
+          <!-- @dragstart.prevent="$event.dataTransfer.setData('text/plain', 'test')" -->
         </div>
       </div>
     </div>
@@ -59,14 +69,38 @@ export default {
     this.hour_item_height = 51;
 
     return {
-      only_work_hours: false,
+      only_work_hours: true,
       data: [],
       weekCounter: 0,
       monday: DateUtils.getMondayTS(),
       eventsByDays: {},
+      prepareDropDay: 0,
     };
   },
   methods: {
+    dragEndHandler() {
+      this.prepareDropDay = 0;
+    },
+    dropHandler(event) {
+      // const evtStr = event.dataTransfer.getData('evt');
+      const offsetYstart = event.dataTransfer.getData('offsety');
+      console.log('offsetYstart', offsetYstart);
+
+      // console.log('drop', event.dataTransfer.getData('evt'));
+      const dropDay = this.prepareDropDay;
+      this.prepareDropDay = 0;
+      const offsetY = event.offsetY - offsetYstart;
+      if (offsetY < 0) return;
+      console.log('offsetY', offsetY);
+      let hours = 24;
+      if (this.only_work_hours) hours = this.work_hours.end - this.work_hours.start + 1;
+
+      const tsPeriod = 60 * 60 * hours;
+      const deltaTS = Math.sign(offsetY) * ((Math.abs(offsetY) * tsPeriod) / this.eventsContainerHeight);
+
+      console.log(dropDay, deltaTS);
+    },
+
     setToday() {
       this.monday = DateUtils.getMondayTS();
     },
@@ -103,17 +137,6 @@ export default {
       const px0 = (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
       return px0;
     },
-    // convertEventTopPositionToTS(startDate, dayNum) {
-    //   const startOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
-    //   const endOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
-    //   const ts0 = startDate;
-    //   const ts1 = startOfDayCoef + (DateUtils.dayTSPeriod * (dayNum - 1) + this.monday / 1) / 1000;
-    //   const ts2 = (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - endOfDayCoef;
-    //   const px1 = 0;
-    //   const px2 = this.eventsContainerHeight;
-    //   const px0 = (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
-    //   return px0;
-    // },
   },
   watch: {
     monday() {
@@ -130,7 +153,6 @@ export default {
         : DateUtils.createDefaultHoursList;
     },
     currentMonth() {
-      // TODO: баг - результат на 1 меньше, когда 1 число месяца это понедельник
       return this.monday.getMonth();
     },
     nextModnayTS() {
@@ -238,12 +260,16 @@ export default {
 }
 .event_item {
   position: absolute;
-  left: 2px;
+  left: 4px;
 }
 
 .footer_section {
   position: relative;
   width: 100%;
   padding: 5px 5px 5px 5px;
+}
+
+.prepare_drop {
+  background-color: hsla(120, 34%, 49%, 0.229);
 }
 </style>
