@@ -26,6 +26,8 @@ const getDaysOfWeekDefaultsWeek = [
 ];
 const hourItemHeight = 51;
 
+const getNextModnayTS = (monday) => new Date(monday + weekTSPeriod) / 1000;
+
 export default {
   getMondayTS,
   createDefaultHoursList,
@@ -35,4 +37,5 @@ export default {
   hourTSPeriod,
   monthsNames,
   hourItemHeight,
+  getNextModnayTS,
 };

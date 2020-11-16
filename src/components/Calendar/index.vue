@@ -8,7 +8,7 @@
       <div>
         <button type="button" @click="setToday">Сегодня</button>&nbsp;&nbsp;
         <button type="button" @click="decrementWeek">&#8592;</button>
-        &nbsp;{{ monthsNames[currentMonth] }}&nbsp;
+        &nbsp;{{ currentMonthName }}&nbsp;
         <button type="button" @click="incrementWeek">&#8594;</button>
       </div>
     </div>
@@ -40,15 +40,10 @@
           :class="{ prepare_drop: prepareDropDay == day_item.number }"
         >
           <event-component
-            class="event_item"
             v-for="(evt, i) in eventsByDays[day_item.number]"
             :key="i"
             :evtdata="evt"
             :style="`top:${getEventTopPosition(evt.startDate, day_item.number)}px;`"
-            draggable="true"
-            @dragend.prevent=""
-            @dragenter.prevent=""
-            @dragover.prevent=""
           ></event-component>
         </div>
       </div>
@@ -69,7 +64,6 @@ export default {
   components: { EventComponent },
   data() {
     this.work_hours = { start: 8, end: 19 };
-    this.monthsNames = DateUtils.monthsNames;
     this.hour_item_height = DateUtils.hourItemHeight;
 
     return {
@@ -86,21 +80,29 @@ export default {
       this.prepareDropDay = 0;
     },
     dropHandler(event) {
-      const offsetYstart = event.dataTransfer.getData('offsety');
       const dropDay = this.prepareDropDay;
-      this.prepareDropDay = 0;
-      const offsetY = event.offsetY - offsetYstart;
-      if (offsetY < 0) return;
-      let hours = 24;
-      if (this.only_work_hours) hours = this.work_hours.end - this.work_hours.start + 1;
+      this.dragEndHandler();
+      const offsetYstart = +event.dataTransfer.getData('offsety');
+      let target_top = event.target.getBoundingClientRect().top;
+      // подменяем таргет, если дроп над другим событием
+      if (event.target.className === 'event-component-root') {
+        const t_idx = event.path.findIndex((e) => e.className.includes('events_container'));
+        this.dragEndHandler();
+        if (t_idx == -1) return;
+        target_top = event.path[t_idx].getBoundingClientRect().top;
+      }
+      const eventY = event.clientY - target_top;
+      const offsetY = eventY - offsetYstart;
 
-      const tsPeriod = 60 * 60 * hours;
-      const deltaTS = Math.sign(offsetY) * ((Math.abs(offsetY) * tsPeriod) / this.eventsContainerHeight);
+      if (offsetY < 0) return;
+      const tsPeriod = 60 * 60 * this.displayed_hours.length;
+      const deltaTS = (offsetY * tsPeriod) / this.eventsContainerHeight;
       const addNotWorkHours = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
       const newStartTime =
         this.monday / 1000 + ((dropDay - 1) * DateUtils.dayTSPeriod) / 1000 + deltaTS + addNotWorkHours;
-      // TODO: некорректно вычисляется newStartTime (странное небольшое смещение). чаще при only_work_hours == true
+
       const evtStr = event.dataTransfer.getData('evt');
+      //вынужденно ищу событие таким образом, так как в исходных данных нет никакого уникального идентификатора (напр. ключа ID)
       const idx = this.data.findIndex((e) => JSON.stringify(e) === evtStr);
       if (idx == -1) return;
       const eventLength = this.data[idx].endDate - this.data[idx].startDate;
@@ -134,16 +136,22 @@ export default {
         this.eventsByDays[dayNum].push(e);
       });
     },
+    getTSStartOfDay(dayNum) {
+      const coef = this.only_work_hours ? this.work_hours.start : 0;
+      return (DateUtils.dayTSPeriod * (dayNum - 1) + this.monday / 1) / 1000 + coef * 60 * 60;
+    },
+    getTSEndOfDay(dayNum) {
+      const coef = this.only_work_hours ? 24 - this.work_hours.end : 0;
+      return (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - 1 - coef * 60 * 60;
+    },
     getEventTopPosition(startDate, dayNum) {
-      const startOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
-      const endOfDayCoef = this.only_work_hours ? 60 * 60 * this.work_hours.start : 0;
       const ts0 = startDate;
-      const ts1 = startOfDayCoef + (DateUtils.dayTSPeriod * (dayNum - 1) + this.monday / 1) / 1000;
-      const ts2 = (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - endOfDayCoef;
+      const ts1 = this.getTSStartOfDay(dayNum);
+      const ts2 = this.getTSEndOfDay(dayNum);
       const px1 = 0;
       const px2 = this.eventsContainerHeight;
-      const px0 = (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
-      return px0;
+
+      return (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
     },
   },
   watch: {
@@ -157,21 +165,19 @@ export default {
     },
     displayed_hours() {
       return this.only_work_hours
-        ? DateUtils.createDefaultHoursList.filter((e) => e >= this.work_hours.start && e <= this.work_hours.end)
+        ? DateUtils.createDefaultHoursList.filter((e) => e >= this.work_hours.start && e < this.work_hours.end)
         : DateUtils.createDefaultHoursList;
     },
-    currentMonth() {
-      return this.monday.getMonth();
-    },
-    nextModnayTS() {
-      return new Date(this.monday / 1 + DateUtils.weekTSPeriod) / 1000;
+    currentMonthName() {
+      return DateUtils.monthsNames[this.monday.getMonth()];
     },
     eventsOnSelectedWeek() {
-      return this.data.filter((e) => e.startDate > this.monday / 1000 && e.endDate < this.nextModnayTS);
+      return this.data.filter(
+        (e) => e.startDate > this.monday / 1000 && e.endDate < DateUtils.getNextModnayTS(this.monday / 1),
+      );
     },
     eventsContainerHeight() {
-      if (this.only_work_hours) return this.hour_item_height * (this.work_hours.end - this.work_hours.start + 1);
-      return this.hour_item_height * 24;
+      return this.displayed_hours.length * this.hour_item_height;
     },
   },
   created() {
@@ -242,7 +248,6 @@ export default {
 .hour_item {
   position: relative;
   width: 100%;
-  /* height: 50px; */
   font-size: 25px;
   border-right: 1px solid grey;
   border-top: 1px solid grey;
@@ -265,10 +270,6 @@ export default {
   left: 0px;
   width: 100%;
   box-sizing: content-box;
-}
-.event_item {
-  position: absolute;
-  left: 4px;
 }
 
 .footer_section {

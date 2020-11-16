@@ -1,10 +1,12 @@
 <template>
   <div
     @dragstart="startDragHandler($event, evtdata)"
+    draggable="true"
     class="event-component-root"
     :style="`height:${eventsComponentHeight}px;`"
   >
-    {{ evtdata.title }}
+    <div>{{ evtdata.title }}</div>
+    <div>{{ startTime }} - {{ endTime }}</div>
   </div>
 </template>
 
@@ -30,14 +32,21 @@ export default {
         DateUtils.hourTSPeriod
       );
     },
+    startTime() {
+      return new Date(this.$props.evtdata.startDate * 1000).toLocaleTimeString();
+    },
+    endTime() {
+      return new Date(this.$props.evtdata.endDate * 1000).toLocaleTimeString();
+    },
   },
 };
 </script>
 
 <style scoped>
 .event-component-root {
-  position: relative;
-  width: 90%;
+  left: 4px;
+  position: absolute;
+  width: 120px;
   border: 1px solid grey;
   border-radius: 3px;
   box-sizing: border-box;
