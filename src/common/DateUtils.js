@@ -28,6 +28,10 @@ const hourItemHeight = 51;
 
 const getNextModnayTS = (monday) => new Date(monday + weekTSPeriod) / 1000;
 
+const roundDateProcessor = (ts = 0) => {
+  return Math.round(ts / 60) * 60;
+};
+
 export default {
   getMondayTS,
   createDefaultHoursList,
@@ -38,4 +42,5 @@ export default {
   monthsNames,
   hourItemHeight,
   getNextModnayTS,
+  roundDateProcessor,
 };

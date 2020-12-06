@@ -4,6 +4,7 @@
     draggable="true"
     class="event-component-root"
     :style="`height:${eventsComponentHeight}px;`"
+    @dblclick="editEvent"
   >
     <div>{{ evtdata.title }}</div>
     <div>{{ startTime }} - {{ endTime }}</div>
@@ -12,16 +13,27 @@
 
 <script>
 import DateUtils from '@/common/DateUtils';
+import { EventItem } from '@/common/EventManager';
 
 export default {
   name: 'EventComponent',
-  props: ['evtdata'],
+  props: {
+    evtdata: {
+      type: Object,
+      default: function() {
+        return new EventItem();
+      },
+    },
+  },
   methods: {
     startDragHandler(event, evt) {
       event.dataTransfer.dropEffect = 'move';
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('evt', JSON.stringify(evt));
       event.dataTransfer.setData('offsety', `${event.offsetY}`);
+    },
+    editEvent() {
+      this.$emit('editevent', this.evtdata);
     },
   },
   computed: {
@@ -33,10 +45,10 @@ export default {
       );
     },
     startTime() {
-      return new Date(this.$props.evtdata.startDate * 1000).toLocaleTimeString();
+      return new Date(this.$props.evtdata.startDate * 1000).toLocaleTimeString().slice(0, 5);
     },
     endTime() {
-      return new Date(this.$props.evtdata.endDate * 1000).toLocaleTimeString();
+      return new Date(this.$props.evtdata.endDate * 1000).toLocaleTimeString().slice(0, 5);
     },
   },
 };

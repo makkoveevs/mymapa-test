@@ -4,6 +4,10 @@
       <div>
         <input type="checkbox" v-model="only_work_hours" id="only_work_hours" />
         <label for="only_work_hours">Только рабочие часы (c {{ work_hours.start }} до {{ work_hours.end }})</label>
+        <button type="button" @click="addEventDialog = true" v-if="!addEventDialog && editedItem == null">
+          Новое событие
+        </button>
+        <button type="button" @click="cancel" v-else>Отменить</button>
       </div>
       <div>
         <button type="button" @click="setToday">Сегодня</button>&nbsp;&nbsp;
@@ -11,6 +15,14 @@
         &nbsp;{{ currentMonthName }}&nbsp;
         <button type="button" @click="incrementWeek">&#8594;</button>
       </div>
+    </div>
+    <div>
+      <event-creator
+        @saveevent="saveEvent"
+        v-if="addEventDialog || editedItem"
+        :ev="editedItem"
+        :editmode="!addEventDialog"
+      />
     </div>
     <div class="week_container">
       <div class="day_of_week" v-for="day_item in days_of_week" :key="day_item.number">
@@ -44,12 +56,15 @@
             :key="i"
             :evtdata="evt"
             :style="`top:${getEventTopPosition(evt.startDate, day_item.number)}px;`"
+            @editevent="editEvent"
           ></event-component>
         </div>
       </div>
     </div>
     <div class="footer_section">
-      <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div>
+      <!-- <div>Событий на этой неделе: {{ eventsOnSelectedWeek.length }}</div> -->
+      <div>{{ eventsByDays }}</div>
+      <div>{{ data }}</div>
     </div>
   </div>
 </template>
@@ -57,11 +72,13 @@
 <script>
 import calendar_events from '@/mock/calendar_events';
 import DateUtils from '@/common/DateUtils.js';
-import EventComponent from './EventComponent.vue';
+import EventComponent from '../EventComponent';
+import EventCreator from '../EventCreator';
+import { EventManager, EventItem } from '@/common/EventManager';
 
 export default {
   name: 'Calendar',
-  components: { EventComponent },
+  components: { EventComponent, EventCreator },
   data() {
     this.work_hours = { start: 8, end: 19 };
     this.hour_item_height = DateUtils.hourItemHeight;
@@ -73,6 +90,9 @@ export default {
       monday: DateUtils.getMondayTS(),
       eventsByDays: {},
       prepareDropDay: 0,
+
+      addEventDialog: false,
+      editedItem: null,
     };
   },
   methods: {
@@ -80,6 +100,9 @@ export default {
       this.prepareDropDay = 0;
     },
     dropHandler(event) {
+      this.editedItem = null;
+      this.addEventDialog = false;
+
       const dropDay = this.prepareDropDay;
       this.dragEndHandler();
       const offsetYstart = +event.dataTransfer.getData('offsety');
@@ -104,10 +127,11 @@ export default {
       const evtStr = event.dataTransfer.getData('evt');
       //вынужденно ищу событие таким образом, так как в исходных данных нет никакого уникального идентификатора (напр. ключа ID)
       const idx = this.data.findIndex((e) => JSON.stringify(e) === evtStr);
+      // const idx = this.data.findIndex((e) => e.internalIdentiefer == evtStr.internalIdentiefer);
       if (idx == -1) return;
       const eventLength = this.data[idx].endDate - this.data[idx].startDate;
-      this.$set(this.data[idx], 'startDate', Math.round(newStartTime));
-      this.$set(this.data[idx], 'endDate', Math.round(newStartTime + eventLength));
+      this.$set(this.data[idx], 'startDate', DateUtils.roundDateProcessor(Math.round(newStartTime)));
+      this.$set(this.data[idx], 'endDate', DateUtils.roundDateProcessor(Math.round(newStartTime + eventLength)));
       this.createStructure();
     },
 
@@ -132,7 +156,7 @@ export default {
 
       this.eventsOnSelectedWeek.forEach((e) => {
         const calcValue = (e.startDate * 1000 - this.monday) / DateUtils.dayTSPeriod;
-        const dayNum = Math.ceil(calcValue);
+        const dayNum = Math.ceil(calcValue) === 0 ? 1 : Math.ceil(calcValue);
         this.eventsByDays[dayNum].push(e);
       });
     },
@@ -144,6 +168,7 @@ export default {
       const coef = this.only_work_hours ? 24 - this.work_hours.end : 0;
       return (DateUtils.dayTSPeriod * dayNum + this.monday / 1) / 1000 - 1 - coef * 60 * 60;
     },
+
     getEventTopPosition(startDate, dayNum) {
       const ts0 = startDate;
       const ts1 = this.getTSStartOfDay(dayNum);
@@ -153,9 +178,58 @@ export default {
 
       return (px1 * (ts2 - ts1) + px2 * (ts0 - ts1)) / (ts2 - ts1);
     },
+
+    saveEvent(ev) {
+      const { title } = ev;
+
+      const startDate =
+        this.monday / 1000 +
+        (DateUtils.dayTSPeriod * (ev.dayNum - 1) +
+          DateUtils.hourTSPeriod * (ev.startTime.slice(0, 2) * 1) +
+          (DateUtils.hourTSPeriod / 60) * (ev.startTime.slice(3, 5) * 1)) /
+          1000;
+      let endDate =
+        this.monday / 1000 +
+        (DateUtils.dayTSPeriod * (ev.dayNum - 1) +
+          DateUtils.hourTSPeriod * (ev.endTime.slice(0, 2) * 1) +
+          (DateUtils.hourTSPeriod / 60) * (ev.endTime.slice(3, 5) * 1)) /
+          1000;
+
+      if (endDate <= startDate) endDate = startDate + DateUtils.hourTSPeriod / 1000;
+
+      if (this.addEventDialog) {
+        this.data.push(new EventItem({ title, startDate, endDate }));
+        this.addEventDialog = false;
+      } else if (this.editedItem != null) {
+        console.log('not null', this.editedItem);
+        const idx = this.data.findIndex((e) => +e.internalIdentiefer === +this.editedItem.internalIdentiefer);
+        if (idx === -1) return;
+        this.$set(
+          this.data,
+          idx,
+          new EventItem({ title, startDate, endDate, internalIdentiefer: this.editedItem.internalIdentiefer }),
+        );
+        console.log('idx', idx);
+        this.editedItem = null;
+      }
+    },
+
+    editEvent(ev) {
+      const startTime = new Date(ev.startDate * 1000).toLocaleTimeString().slice(0, 5);
+      const endTime = new Date(ev.endDate * 1000).toLocaleTimeString().slice(0, 5);
+      this.editedItem = { title: ev.title, dayNum: 1, startTime, endTime, internalIdentiefer: ev.internalIdentiefer };
+    },
+
+    cancel() {
+      this.addEventDialog = false;
+      this.editedItem = null;
+    },
   },
   watch: {
     monday() {
+      this.createStructure();
+    },
+    data() {
       this.createStructure();
     },
   },
@@ -173,7 +247,7 @@ export default {
     },
     eventsOnSelectedWeek() {
       return this.data.filter(
-        (e) => e.startDate > this.monday / 1000 && e.endDate < DateUtils.getNextModnayTS(this.monday / 1),
+        (e) => e.startDate >= this.monday / 1000 && e.endDate < DateUtils.getNextModnayTS(this.monday / 1),
       );
     },
     eventsContainerHeight() {
@@ -181,10 +255,7 @@ export default {
     },
   },
   created() {
-    this.data = calendar_events;
-  },
-  mounted() {
-    this.createStructure();
+    this.data = new EventManager(calendar_events);
   },
 };
 </script>
