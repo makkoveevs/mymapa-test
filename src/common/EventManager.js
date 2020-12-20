@@ -2,12 +2,17 @@ let i = 0;
 import DateUtils from './DateUtils';
 
 class EventItem {
-  constructor({ internalIdentiefer, title, startDate = new Date() / 1000, endDate = new Date() / 1000 }) {
+  constructor({
+    internalIdentiefer = null,
+    title = '',
+    startDate = new Date() / 1000,
+    endDate = new Date() / 1000,
+  } = {}) {
     this.internalIdentiefer =
       internalIdentiefer == null || internalIdentiefer == undefined
         ? this.constructor.idGenerator()
         : internalIdentiefer;
-    this.title = title || '';
+    this.title = title;
     this.startDate = this.constructor.startDateProcessor(startDate);
     this.endDate = this.endDateProcessor(endDate);
   }
